@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gemini Computer Use</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <!-- Custom Title Bar -->
+    <div class="titlebar" id="titlebar">
+      <div class="titlebar-left">
+        <div class="logo-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="url(#grad1)"
+              stroke-width="2"
+            />
+            <circle cx="12" cy="12" r="4" fill="url(#grad1)" />
+            <defs>
+              <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color: #8b5cf6" />
+                <stop offset="100%" style="stop-color: #06b6d4" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <span class="titlebar-title">Gemini Desktop Agent</span>
+        <span class="titlebar-badge">AI Agent</span>
+      </div>
+      <div class="titlebar-controls">
+        <button class="tb-btn minimize" onclick="minimizeWindow()">─</button>
+        <button class="tb-btn maximize" onclick="maximizeWindow()">□</button>
+        <button class="tb-btn close" onclick="closeWindow()">✕</button>
+      </div>
+    </div>
+
+    <div class="app-container">
+      <!-- Left Panel: Screen View -->
+      <div class="panel browser-panel">
+        <div class="panel-header browser-chrome">
+          <div class="browser-dots">
+            <span class="chrome-dot red"></span>
+            <span class="chrome-dot yellow"></span>
+            <span class="chrome-dot green"></span>
+          </div>
+          <div class="browser-url-bar" id="browserUrlBar">
+            <svg
+              class="lock-icon"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <rect
+                x="3"
+                y="11"
+                width="18"
+                height="11"
+                rx="2"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <path
+                d="M7 11V7a5 5 0 0110 0v4"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+            </svg>
+            <span class="url-text" id="urlText">Desktop</span>
+          </div>
+          <div class="mode-indicator" id="modeIndicator">
+            🖥️ Desktop (Background)
+          </div>
+          <div class="panel-status" id="browserStatus">Waiting...</div>
+        </div>
+        <div class="browser-viewport" id="browserViewport">
+          <div class="placeholder" id="placeholder">
+            <div class="placeholder-anim">
+              <div class="orbit-ring"></div>
+              <div class="orbit-dot"></div>
+            </div>
+            <p class="placeholder-text">Enter a query or use voice to start</p>
+            <p class="placeholder-sub">
+              The desktop view will appear here in real-time
+            </p>
+          </div>
+          <img
+            id="screenshot"
+            class="screenshot hidden"
+            alt="Desktop Screenshot"
+          />
+          <div class="cursor-indicator hidden" id="cursorIndicator">
+            <div class="cursor-ring"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Panel: Controls & Info -->
+      <div class="panel info-panel">
+        <!-- Query Input -->
+        <div class="query-section">
+          <div class="input-wrapper">
+            <input
+              type="text"
+              id="queryInput"
+              placeholder="Tell the AI what to do..."
+              onkeydown="if (event.key === 'Enter') startAgent();"
+            />
+            <button
+              class="voice-btn"
+              id="voiceBtn"
+              onclick="toggleVoice()"
+              title="Voice input"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+                <path
+                  d="M19 10v2a7 7 0 0 1-14 0v-2"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+                <line
+                  x1="12"
+                  y1="19"
+                  x2="12"
+                  y2="23"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+            <button class="send-btn" id="sendBtn" onclick="startAgent()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M22 2L11 13"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M22 2L15 22L11 13L2 9L22 2Z"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
+          <div class="query-options">
+            <label class="option-label">
+              <span>Model:</span>
+              <select id="modelSelect">
+                <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
+                <option value="gemini-2.5-flash-preview-04-17">
+                  Gemini 2.5 Flash
+                </option>
+              </select>
+            </label>
+            <label class="option-label">
+              <span>Mode:</span>
+              <select id="modeSelect" onchange="updateMode()">
+                <option value="desktop">🖥️ Desktop</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <!-- Thinking / Reasoning -->
+        <div class="section thinking-section">
+          <div class="section-header">
+            <span class="section-icon">🧠</span>
+            <span>AI Reasoning</span>
+            <div class="thinking-indicator hidden" id="thinkingIndicator">
+              <div class="pulse-dot"></div>
+              Thinking...
+            </div>
+          </div>
+          <div class="thinking-content" id="thinkingContent">
+            <p class="empty-state">AI reasoning will appear here...</p>
+          </div>
+        </div>
+
+        <!-- Action Log -->
+        <div class="section actions-section">
+          <div class="section-header">
+            <span class="section-icon">⚡</span>
+            <span>Action Timeline</span>
+            <span class="action-count" id="actionCount">0</span>
+          </div>
+          <div class="actions-list" id="actionsList">
+            <p class="empty-state">
+              Actions will appear here as the agent works...
+            </p>
+          </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+          <div class="status-left">
+            <div class="connection-dot" id="connectionDot"></div>
+            <span id="connectionStatus">Disconnected</span>
+          </div>
+          <div class="status-center">
+            <span id="iterationCount">Iteration: 0</span>
+          </div>
+          <div class="status-right">
+            <span id="memoryStatus" class="memory-status"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
