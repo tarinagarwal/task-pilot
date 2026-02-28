@@ -417,3 +417,4 @@ class BrowserAgent:
 
     def denormalize_y(self, y: int) -> int:
         return int(y / 1000 * self._browser_computer.screen_size()[1])
+
