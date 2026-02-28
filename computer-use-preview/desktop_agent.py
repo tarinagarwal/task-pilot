@@ -426,3 +426,4 @@ class DesktopAgent:
             if status == "COMPLETE":
                 break
         return self.final_reasoning
+
