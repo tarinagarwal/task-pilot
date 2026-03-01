@@ -919,3 +919,4 @@ class DesktopComputer(Computer):
             return {"stdout": "", "stderr": "Command timed out", "returncode": -1}
         except Exception as e:
             return {"stdout": "", "stderr": str(e), "returncode": -1}
+
