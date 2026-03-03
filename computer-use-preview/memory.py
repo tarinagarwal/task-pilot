@@ -181,3 +181,4 @@ class SessionMemory:
         except Exception as e:
             print(f"[MEMORY] Firestore load error: {e}")
 
+
