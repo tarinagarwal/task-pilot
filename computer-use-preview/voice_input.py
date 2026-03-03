@@ -121,3 +121,4 @@ class VoiceTranscriber:
         except Exception as e:
             print(f"[VOICE] Streaming transcription error: {e}")
             return ""
+
