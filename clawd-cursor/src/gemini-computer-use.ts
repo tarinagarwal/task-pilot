@@ -27,6 +27,7 @@ import {
   type GeminiMessage,
   buildGeminiConfig,
   geminiVisionCall,
+  geminiTextCall,
   createImagePart,
   createTextPart,
 } from "./gemini-client";
@@ -35,55 +36,99 @@ const MAX_ITERATIONS = 30;
 const IS_MAC = os.platform() === "darwin";
 
 const SYSTEM_PROMPT = IS_MAC
-  ? `You are Clawd Cursor, an AI desktop agent on macOS using Gemini vision.
-Screen resolution info is provided with each screenshot.
-You see screenshots and accessibility data, then decide what action to take.
+  ? `You are Gemini Cursor, an AI desktop automation agent on macOS.
 
-Respond with ONLY valid JSON — one action per response:
+=== RESPONSE FORMAT ===
+Respond with ONLY valid JSON. One action per response. No markdown, no explanation outside JSON.
+
 {"action":"screenshot","description":"..."}
 {"action":"left_click","coordinate":[x,y],"description":"..."}
 {"action":"right_click","coordinate":[x,y],"description":"..."}
 {"action":"double_click","coordinate":[x,y],"description":"..."}
-{"action":"type","text":"...","description":"..."}
+{"action":"type","text":"simple text to type","description":"..."}
+{"action":"compose","content_type":"essay|letter|email|code|document","topic":"detailed description of what to write","description":"..."}
 {"action":"key","text":"key_combo","description":"..."}
 {"action":"scroll","coordinate":[x,y],"scroll_direction":"up|down","scroll_amount":5,"description":"..."}
 {"action":"left_click_drag","start_coordinate":[x,y],"coordinate":[x,y],"description":"..."}
 {"action":"wait","duration":2,"description":"..."}
 {"action":"done","description":"..."}
 
-RULES:
-1. FIRST take a screenshot to see what's on screen.
-2. BATCH: you can only return ONE action per response.
-3. Prefer keyboard shortcuts: Cmd+C copy, Cmd+V paste, Cmd+W close, Cmd+Tab switch.
-4. Coordinates are in SCREENSHOT space (will be auto-scaled).
-5. When done, respond with {"action":"done","description":"..."}.
-6. NEVER repeat the same failed action. Try a different approach.
-7. Use accessibility data when available for precise targeting.`
-  : `You are Clawd Cursor, an AI desktop agent on Windows 11 using Gemini vision.
-Screen resolution info is provided with each screenshot.
-You see screenshots and accessibility data, then decide what action to take.
+=== CRITICAL RULES ===
 
-Respond with ONLY valid JSON — one action per response:
+**RULE 1 - COMPOSE vs TYPE (MOST IMPORTANT):**
+- Use "type" ONLY for short, literal text (URLs, filenames, search queries, usernames, passwords)
+- Use "compose" when asked to WRITE/CREATE/DRAFT any substantial content:
+  * Essays, articles, stories
+  * Letters, applications, emails
+  * Code, scripts, documents
+  * Reports, summaries, descriptions
+
+EXAMPLES:
+- "Type google.com" → {"action":"type","text":"google.com"}
+- "Write an essay on WW2" → {"action":"compose","content_type":"essay","topic":"World War 2 - causes, major events, and impact on modern world"}
+- "Write a leave application" → {"action":"compose","content_type":"letter","topic":"formal leave application requesting 5 days off addressed to manager"}
+- "Search for cats" → {"action":"type","text":"cats"}
+
+**RULE 2 - WORKFLOW:**
+1. Take screenshot first to see current state
+2. One action per response
+3. Use keyboard shortcuts: Cmd+C, Cmd+V, Cmd+W, Cmd+Tab
+
+**RULE 3 - COORDINATES:**
+Coordinates are in screenshot space (auto-scaled)
+
+**RULE 4 - COMPLETION:**
+When task is complete: {"action":"done","description":"..."}
+
+**RULE 5 - ERROR RECOVERY:**
+NEVER repeat failed actions. Try alternatives.`
+  : `You are Gemini Cursor, an AI desktop automation agent on Windows 11.
+
+=== RESPONSE FORMAT ===
+Respond with ONLY valid JSON. One action per response. No markdown, no explanation outside JSON.
+
 {"action":"screenshot","description":"..."}
 {"action":"left_click","coordinate":[x,y],"description":"..."}
 {"action":"right_click","coordinate":[x,y],"description":"..."}
 {"action":"double_click","coordinate":[x,y],"description":"..."}
-{"action":"type","text":"...","description":"..."}
+{"action":"type","text":"simple text to type","description":"..."}
+{"action":"compose","content_type":"essay|letter|email|code|document","topic":"detailed description of what to write","description":"..."}
 {"action":"key","text":"key_combo","description":"..."}
 {"action":"scroll","coordinate":[x,y],"scroll_direction":"up|down","scroll_amount":5,"description":"..."}
 {"action":"left_click_drag","start_coordinate":[x,y],"coordinate":[x,y],"description":"..."}
 {"action":"wait","duration":2,"description":"..."}
 {"action":"done","description":"..."}
 
-RULES:
-1. FIRST take a screenshot to see what's on screen.
-2. BATCH: you can only return ONE action per response.
-3. Prefer keyboard shortcuts: Ctrl+C copy, Ctrl+V paste, Alt+F4 close, Alt+Tab switch.
-4. Win11: taskbar BOTTOM centered, system tray bottom-right.
-5. Coordinates are in SCREENSHOT space (will be auto-scaled).
-6. When done, respond with {"action":"done","description":"..."}.
-7. NEVER repeat the same failed action. Try a different approach.
-8. Use accessibility data when available for precise targeting.`;
+=== CRITICAL RULES ===
+
+**RULE 1 - COMPOSE vs TYPE (MOST IMPORTANT):**
+- Use "type" ONLY for short, literal text (URLs, filenames, search queries, usernames, passwords)
+- Use "compose" when asked to WRITE/CREATE/DRAFT any substantial content:
+  * Essays, articles, stories
+  * Letters, applications, emails
+  * Code, scripts, documents
+  * Reports, summaries, descriptions
+
+EXAMPLES:
+- "Type google.com" → {"action":"type","text":"google.com"}
+- "Write an essay on WW2" → {"action":"compose","content_type":"essay","topic":"World War 2 - causes, major events, and impact on modern world"}
+- "Write a leave application" → {"action":"compose","content_type":"letter","topic":"formal leave application requesting 5 days off addressed to manager"}
+- "Search for cats" → {"action":"type","text":"cats"}
+
+**RULE 2 - WORKFLOW:**
+1. Take screenshot first to see current state
+2. One action per response
+3. Use keyboard shortcuts: Ctrl+C, Ctrl+V, Alt+F4, Alt+Tab
+4. Win11: taskbar BOTTOM centered, system tray bottom-right
+
+**RULE 3 - COORDINATES:**
+Coordinates are in screenshot space (auto-scaled)
+
+**RULE 4 - COMPLETION:**
+When task is complete: {"action":"done","description":"..."}
+
+**RULE 5 - ERROR RECOVERY:**
+NEVER repeat failed actions. Try alternatives.`;
 
 export interface GeminiComputerUseResult {
   success: boolean;
@@ -474,6 +519,25 @@ export class GeminiComputerUseBrain {
             description: `Typed "${text.substring(0, 50)}${text.length > 50 ? "..." : ""}"`,
           };
         }
+        case "compose": {
+          const contentType = parsed.content_type || "document";
+          const topic = parsed.topic;
+          if (!topic) return { description: "Compose: no topic", error: "No topic provided" };
+          
+          console.log(`   📝 Generating ${contentType}: "${topic.substring(0, 50)}..."`);
+          
+          // Generate content using Gemini
+          const generatedContent = await this.generateContent(contentType, topic);
+          if (!generatedContent) {
+            return { description: "Compose: generation failed", error: "Failed to generate content" };
+          }
+          
+          // Type the generated content
+          await this.desktop.typeText(generatedContent);
+          return {
+            description: `Composed ${contentType}: "${topic.substring(0, 30)}..." (${generatedContent.length} chars)`,
+          };
+        }
         case "key": {
           if (!text) return { description: "Key: empty", error: "No key" };
           await this.desktop.keyPress(normalizeKeyCombo(text));
@@ -543,6 +607,38 @@ export class GeminiComputerUseBrain {
       return `ACCESSIBILITY:\n${context}`;
     } catch {
       return "ACCESSIBILITY: (unavailable)";
+    }
+  }
+
+  /**
+   * Generate content using Gemini text generation.
+   */
+  private async generateContent(contentType: string, topic: string): Promise<string | null> {
+    const prompts: Record<string, string> = {
+      essay: `Write a well-structured essay on the following topic. Include an introduction, body paragraphs with supporting details, and a conclusion. Write at least 300 words.\n\nTopic: ${topic}`,
+      letter: `Write a formal letter for the following purpose. Include proper salutation, body, and closing.\n\nPurpose: ${topic}`,
+      email: `Write a professional email for the following purpose. Include greeting, body, and signature.\n\nPurpose: ${topic}`,
+      code: `Write clean, well-commented code for the following requirement.\n\nRequirement: ${topic}`,
+      document: `Write a document for the following purpose.\n\nPurpose: ${topic}`,
+    };
+
+    const prompt = prompts[contentType] || prompts.document;
+
+    try {
+      const response = await geminiTextCall(
+        this.geminiConfig,
+        "You are a professional content writer. Generate the requested content directly without any preamble or meta-commentary. Do not use markdown formatting unless specifically writing code.",
+        prompt,
+        4096
+      );
+
+      if (!response) return null;
+      
+      // Clean up any markdown formatting that might interfere with typing
+      return response.replace(/```[a-z]*\n?/g, "").replace(/```/g, "").trim();
+    } catch (err) {
+      console.error(`   ❌ Content generation failed: ${err}`);
+      return null;
     }
   }
 

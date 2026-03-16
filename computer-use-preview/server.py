@@ -382,13 +382,15 @@ async def handler(websocket):
 
 
 async def main():
+    port = int(os.environ.get("PORT", 8765))
+    host = "0.0.0.0"  # Required for Cloud Run
     print("=" * 60)
     print("  Gemini AI Agent Server")
-    print("  WebSocket: ws://localhost:8765")
+    print(f"  WebSocket: ws://{host}:{port}")
     print("  Browser mode: Playwright + Gemini Computer Use")
     print("  Desktop mode: clawd-cursor API bridge")
     print("=" * 60)
-    async with websockets.serve(handler, "localhost", 8765, max_size=50 * 1024 * 1024):
+    async with websockets.serve(handler, host, port, max_size=50 * 1024 * 1024):
         await asyncio.Future()
 
 

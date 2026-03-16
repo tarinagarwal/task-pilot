@@ -1,13 +1,44 @@
 {
   "name": "gemini-computer-use",
   "version": "1.0.0",
-  "description": "Gemini Computer Use - AI Browser Agent",
+  "description": "Gemini Computer Use - AI Browser & Desktop Agent",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron ."
+    "dev": "electron .",
+    "build": "electron-builder --win",
+    "build:dir": "electron-builder --win --dir"
   },
   "dependencies": {
-    "electron": "^33.0.0"
+    "clawd-cursor": "file:../clawd-cursor",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.gemini.computeruse",
+    "productName": "Gemini Computer Use",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable",
+      "icon": "icon.ico"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/clawd-cursor/node_modules/**/*",
+      "node_modules/clawd-cursor/dist/**/*",
+      "node_modules/clawd-cursor/package.json"
+    ],
+    "extraResources": [
+      {
+        "from": ".env",
+        "to": ".env"
+      }
+    ],
+    "asar": false
   }
 }

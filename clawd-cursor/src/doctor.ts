@@ -1,5 +1,5 @@
 /**
- * 🩺 Clawd Cursor Doctor - diagnoses setup and auto-configures the pipeline.
+ * 🩺 Gemini Cursor Doctor - diagnoses setup and auto-configures the pipeline.
  *
  * Tests:
  * 1. Screen capture (nut-js)
@@ -293,7 +293,7 @@ export async function runDoctor(opts: {
 }): Promise<PipelineConfig | null> {
   const results: DiagResult[] = [];
 
-  console.log(`\n🩺 Clawd Cursor Doctor - diagnosing your setup...\n`);
+  console.log(`\n🩺 Gemini Cursor Doctor - diagnosing your setup...\n`);
 
   // ─── 0. Version Check ───────────────────────────────────────────
   console.log("📦 Version check...");

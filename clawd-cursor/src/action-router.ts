@@ -285,9 +285,17 @@ export class ActionRouter {
       return this.handleOpenApp(openMatch[1].trim());
     }
 
-    // 2. "type [text]" / "type '[text]'" / "enter [text]"
+    // 1.5. Content generation detection - skip to LLM layer
+    // Matches: "write an essay", "compose a letter", "draft an email", "create a document", etc.
+    const contentGenPattern = /^(?:write|compose|draft|create|prepare)\s+(?:an?|the|some|my)?\s*(?:essay|letter|email|document|report|article|story|poem|code|script|message|note|summary|description|paragraph|text|content|application|resume|cv|cover letter)/i;
+    if (contentGenPattern.test(rawTask)) {
+      // Don't handle - let Gemini Computer Use handle content generation
+      return { handled: false, description: "Content generation - requires LLM" };
+    }
+
+    // 2. "type [text]" / "type '[text]'" / "enter [text]" (simple literal typing only)
     const typeMatch = rawTask.match(
-      /^(?:type|enter|write|input)\s+(?:['"]([^'"]*)['"]\s*|(\S.*))$/i,
+      /^(?:type|enter|input)\s+(?:['"]([^'"]*)['"]\s*|(\S.*))$/i,
     );
     if (typeMatch) {
       this.telemetry.nonShortcutHandled += 1;

@@ -1,5 +1,9 @@
 const { ipcRenderer } = require("electron");
 
+// Cloud Run URL for browser mode
+const CLOUD_RUN_URL = "wss://computer-use-preview-753617931709.us-central1.run.app";
+const CLAWD_LOCAL_URL = "http://127.0.0.1:3847";
+
 // Window controls
 function minimizeWindow() {
   ipcRenderer.send("window-minimize");
@@ -51,10 +55,11 @@ const modeIndicator = document.getElementById("modeIndicator");
 const cursorIndicator = document.getElementById("cursorIndicator");
 const memoryStatus = document.getElementById("memoryStatus");
 
-// ── WebSocket ──
+// ── WebSocket (Browser Mode) ──
 
 function connectWebSocket() {
-  ws = new WebSocket("ws://localhost:8765");
+  // Only connect for browser mode
+  ws = new WebSocket(CLOUD_RUN_URL);
   ws.binaryType = "arraybuffer";
 
   ws.onopen = () => {
@@ -305,23 +310,119 @@ function addActionItem(name, args) {
 }
 
 function startAgent() {
-  if (isRunning || !ws || ws.readyState !== WebSocket.OPEN) return;
+  if (isRunning) return;
   const query = queryInput.value.trim();
   if (!query) return;
+  
+  const mode = modeSelect.value;
+  
   setRunning(true);
   thinkingContent.innerHTML = "";
   actionsList.innerHTML = "";
   actionCountNum = 0;
   actionCount.textContent = "0";
   iterationCount.textContent = "Iteration: 0";
-  ws.send(
-    JSON.stringify({
-      type: "start",
-      query: query,
-      model: modelSelect.value,
-      mode: modeSelect.value,
-    }),
-  );
+  
+  if (mode === "desktop") {
+    // Desktop mode - use local clawd-cursor REST API
+    startDesktopAgent(query);
+  } else {
+    // Browser mode - use Cloud Run WebSocket
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      connectWebSocket();
+      // Wait for connection then send
+      ws.onopen = () => {
+        connectionDot.classList.add("connected");
+        connectionStatus.textContent = "Connected";
+        ws.send(
+          JSON.stringify({
+            type: "start",
+            query: query,
+            model: modelSelect.value,
+            mode: "browser",
+          }),
+        );
+      };
+    } else {
+      ws.send(
+        JSON.stringify({
+          type: "start",
+          query: query,
+          model: modelSelect.value,
+          mode: "browser",
+        }),
+      );
+    }
+  }
+}
+
+// Desktop mode - clawd-cursor REST API
+async function startDesktopAgent(query) {
+  try {
+    addThinkingEntry("Sending task to Gemini Cursor...");
+    
+    const res = await fetch(`${CLAWD_LOCAL_URL}/task`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ task: query }),
+    });
+    
+    const data = await res.json();
+    
+    if (data.accepted) {
+      addThinkingEntry("Task accepted. Monitoring progress...");
+      pollDesktopStatus();
+    } else {
+      addThinkingEntry(data.error || "Task rejected", "error");
+      setRunning(false);
+    }
+  } catch (err) {
+    addThinkingEntry(`Failed to connect to Gemini Cursor: ${err.message}`, "error");
+    setRunning(false);
+  }
+}
+
+async function pollDesktopStatus() {
+  let iteration = 0;
+  
+  while (isRunning) {
+    await new Promise(r => setTimeout(r, 1000));
+    
+    try {
+      const res = await fetch(`${CLAWD_LOCAL_URL}/status`);
+      const status = await res.json();
+      
+      const agentStatus = status.status || "idle";
+      
+      // Update iteration count
+      if (status.stepsCompleted > iteration) {
+        iteration = status.stepsCompleted;
+        iterationCount.textContent = `Iteration: ${iteration}`;
+        if (status.currentStep) {
+          addActionItem("desktop_action", { step: status.currentStep });
+        }
+      }
+      
+      // Check if done
+      if (agentStatus === "idle" && iteration > 0) {
+        addThinkingEntry("Desktop task completed!", "result");
+        browserStatus.textContent = "✓ Complete";
+        setRunning(false);
+        break;
+      }
+      
+      if (agentStatus === "error") {
+        addThinkingEntry(status.error || "Task failed", "error");
+        browserStatus.textContent = "✕ Error";
+        setRunning(false);
+        break;
+      }
+      
+    } catch (err) {
+      // Connection lost
+      break;
+    }
+  }
 }
 
 function setRunning(running) {
@@ -339,7 +440,7 @@ function setRunning(running) {
 function updateMode() {
   const mode = modeSelect.value;
   if (mode === "desktop") {
-    modeIndicator.textContent = "🖥️ Desktop (clawd-cursor)";
+    modeIndicator.textContent = "🖥️ Desktop (Gemini Cursor)";
   } else {
     modeIndicator.textContent = "🌐 Browser (Playwright)";
   }
@@ -351,5 +452,5 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// Init
-connectWebSocket();
+// Init - connect WebSocket for browser mode only when needed
+// connectWebSocket();

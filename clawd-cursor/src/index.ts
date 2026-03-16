@@ -145,7 +145,7 @@ program
 
     console.log(`
 🐾 ╔═══════════════════════════════════════╗
-   ║       CLAWD CURSOR v${VERSION}             ║
+   ║       GEMINI CURSOR v${VERSION}            ║
    ║   AI Desktop Agent — Smart Pipeline   ║
    ╚═══════════════════════════════════════╝
 `);
@@ -511,7 +511,7 @@ program
     const path = await import("path");
     const os = await import("os");
 
-    console.log("\n🐾 Installing Clawd Cursor...\n");
+    console.log("\n🐾 Installing Gemini Cursor...\n");
 
     const clawdRoot = path.resolve(__dirname, "..");
 
