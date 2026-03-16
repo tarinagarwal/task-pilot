@@ -35,15 +35,8 @@ variable "timeout" {
   default     = 3600
 }
 
-# Optional: GitHub configuration for Cloud Build triggers
-variable "github_owner" {
-  description = "GitHub repository owner"
+variable "image_tag" {
+  description = "Docker image tag to deploy to Cloud Run"
   type        = string
-  default     = ""
-}
-
-variable "github_repo" {
-  description = "GitHub repository name"
-  type        = string
-  default     = ""
+  default     = "latest"
 }

@@ -59,6 +59,21 @@ terraform plan
 terraform apply
 ```
 
+## Docker + Terraform Deployment Flow (No GitHub Actions)
+
+From repository root:
+
+```bash
+./deploy.sh --project <your-gcp-project>
+```
+
+What the script does:
+
+1. Bootstraps required APIs and Artifact Registry via Terraform targets
+2. Builds Docker image from `computer-use-preview/Dockerfile`
+3. Pushes image to Artifact Registry
+4. Runs full Terraform apply with the selected image tag
+
 ### 5. Get Output Values
 
 ```bash

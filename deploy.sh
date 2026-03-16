@@ -1,17 +1,18 @@
 #!/bin/bash
 # =============================================================================
-# Gemini Computer Use - One-Click Deployment Script
+# TaskPilot - Docker + Terraform Deployment Script
 # =============================================================================
-# This script automates the deployment of computer-use-preview to Google Cloud Run
+# This script automates Cloud deployment with Dockerfile + Terraform only.
 #
 # Prerequisites:
 #   - gcloud CLI installed and authenticated (gcloud auth login)
-#   - Docker installed (for local builds)
+#   - Docker installed
+#   - Terraform installed
 #
 # Usage:
-#   ./deploy.sh                    # Deploy with default settings
-#   ./deploy.sh --project my-proj  # Deploy to specific project
-#   ./deploy.sh --help             # Show help
+#   ./deploy.sh                          # Deploy with defaults
+#   ./deploy.sh --project my-proj        # Set project
+#   ./deploy.sh --project my-proj --tag v1.2.3
 # =============================================================================
 
 set -e  # Exit on error
@@ -20,9 +21,12 @@ set -e  # Exit on error
 PROJECT_ID="${GCP_PROJECT_ID:-}"
 REGION="${GCP_REGION:-us-central1}"
 SERVICE_NAME="computer-use-preview"
+REPOSITORY="gemini-computer-use"
 MEMORY="2Gi"
 CPU="2"
 TIMEOUT="3600"
+MAX_INSTANCES="10"
+IMAGE_TAG=""
 
 # Colors for output
 RED='\033[0;31m'
@@ -46,8 +50,11 @@ show_help() {
     echo "Options:"
     echo "  --project, -p    GCP Project ID (required if not set in env)"
     echo "  --region, -r     GCP Region (default: us-central1)"
+    echo "  --tag, -t        Docker image tag (default: git sha or timestamp)"
     echo "  --memory, -m     Memory allocation (default: 2Gi)"
     echo "  --cpu, -c        CPU allocation (default: 2)"
+    echo "  --max-instances  Max Cloud Run instances (default: 10)"
+    echo "  --timeout        Timeout in seconds (default: 3600)"
     echo "  --help, -h       Show this help message"
     echo ""
     echo "Environment Variables:"
@@ -64,8 +71,11 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --project|-p) PROJECT_ID="$2"; shift 2 ;;
         --region|-r) REGION="$2"; shift 2 ;;
+        --tag|-t) IMAGE_TAG="$2"; shift 2 ;;
         --memory|-m) MEMORY="$2"; shift 2 ;;
         --cpu|-c) CPU="$2"; shift 2 ;;
+        --max-instances) MAX_INSTANCES="$2"; shift 2 ;;
+        --timeout) TIMEOUT="$2"; shift 2 ;;
         --help|-h) show_help; exit 0 ;;
         *) print_error "Unknown option: $1"; show_help; exit 1 ;;
     esac
@@ -80,22 +90,46 @@ if [ -z "$PROJECT_ID" ]; then
     fi
 fi
 
+# Resolve image tag
+if [ -z "$IMAGE_TAG" ]; then
+    if command -v git &> /dev/null && git rev-parse --is-inside-work-tree &> /dev/null; then
+        IMAGE_TAG=$(git rev-parse --short HEAD)
+    else
+        IMAGE_TAG=$(date +%Y%m%d%H%M%S)
+    fi
+fi
+
+IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${SERVICE_NAME}:${IMAGE_TAG}"
+
 # Print banner
 echo ""
 echo "╔═══════════════════════════════════════════════════════════════╗"
-echo "║       GEMINI COMPUTER USE - AUTOMATED DEPLOYMENT              ║"
+echo "║       TASKPILOT - DOCKER + TERRAFORM DEPLOYMENT              ║"
 echo "╚═══════════════════════════════════════════════════════════════╝"
 echo ""
 print_info "Project:  $PROJECT_ID"
 print_info "Region:   $REGION"
 print_info "Service:  $SERVICE_NAME"
+print_info "Image:    $IMAGE_URI"
 print_info "Memory:   $MEMORY"
 print_info "CPU:      $CPU"
+print_info "MaxInst:  $MAX_INSTANCES"
+print_info "Timeout:  $TIMEOUT"
 echo ""
 
-# Check if gcloud is installed
+# Check tools
 if ! command -v gcloud &> /dev/null; then
     print_error "gcloud CLI is not installed. Please install it first."
+    exit 1
+fi
+
+if ! command -v docker &> /dev/null; then
+    print_error "Docker is not installed. Please install it first."
+    exit 1
+fi
+
+if ! command -v terraform &> /dev/null; then
+    print_error "Terraform is not installed. Please install it first."
     exit 1
 fi
 
@@ -109,33 +143,46 @@ fi
 print_info "Setting project to $PROJECT_ID..."
 gcloud config set project "$PROJECT_ID"
 
-# Enable required APIs
-print_info "Enabling required APIs..."
-gcloud services enable run.googleapis.com --quiet
-gcloud services enable cloudbuild.googleapis.com --quiet
-gcloud services enable artifactregistry.googleapis.com --quiet
+# Configure Docker auth for Artifact Registry
+print_info "Configuring Docker auth for Artifact Registry..."
+gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
 
-# Navigate to computer-use-preview directory
+# Locate repo root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR/computer-use-preview"
 
-# Deploy to Cloud Run from source
-print_info "Deploying to Cloud Run (this may take a few minutes)..."
-echo ""
+# Bootstrap APIs + Artifact Registry via Terraform targets
+print_info "Bootstrapping APIs and Artifact Registry with Terraform..."
+cd "$SCRIPT_DIR/terraform"
+terraform init -input=false
+terraform apply -auto-approve -input=false \
+    -var="project_id=$PROJECT_ID" \
+    -var="region=$REGION" \
+    -target=google_project_service.run_api \
+    -target=google_project_service.artifactregistry_api \
+    -target=google_artifact_registry_repository.docker_repo
 
-gcloud run deploy "$SERVICE_NAME" \
-    --source . \
-    --region "$REGION" \
-    --memory "$MEMORY" \
-    --cpu "$CPU" \
-    --timeout "$TIMEOUT" \
-    --allow-unauthenticated \
-    --session-affinity \
-    --set-env-vars "USE_VERTEXAI=true,VERTEXAI_PROJECT=$PROJECT_ID,VERTEXAI_LOCATION=global,PLAYWRIGHT_HEADLESS=true" \
-    --quiet
+# Build and push image from Dockerfile
+print_info "Building Docker image from computer-use-preview/Dockerfile..."
+cd "$SCRIPT_DIR"
+docker build -t "$IMAGE_URI" ./computer-use-preview
+
+print_info "Pushing Docker image to Artifact Registry..."
+docker push "$IMAGE_URI"
+
+# Full Terraform apply (Cloud Run deployment)
+print_info "Applying full Terraform deployment..."
+cd "$SCRIPT_DIR/terraform"
+terraform apply -auto-approve -input=false \
+    -var="project_id=$PROJECT_ID" \
+    -var="region=$REGION" \
+    -var="cpu=$CPU" \
+    -var="memory=$MEMORY" \
+    -var="max_instances=$MAX_INSTANCES" \
+    -var="timeout=$TIMEOUT" \
+    -var="image_tag=$IMAGE_TAG"
 
 # Get the service URL
-SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" --region "$REGION" --format 'value(status.url)')
+SERVICE_URL=$(terraform output -raw service_url)
 WEBSOCKET_URL="${SERVICE_URL/https:\/\//wss://}"
 
 # Print success message
@@ -148,6 +195,7 @@ print_success "Service deployed successfully!"
 echo ""
 echo "  HTTP URL:      $SERVICE_URL"
 echo "  WebSocket URL: $WEBSOCKET_URL"
+echo "  Image Tag:     $IMAGE_TAG"
 echo ""
-print_info "Update your frontend to use the WebSocket URL above"
+print_info "Deployment is fully scripted and Terraform-managed (no GitHub Actions)."
 echo ""
