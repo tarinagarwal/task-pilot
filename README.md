@@ -105,23 +105,6 @@ cd ../computer-use-preview
 python server.py
 ```
 
-### Production Build
-
-```bash
-# Build desktop agent
-cd clawd-cursor
-npm run build
-
-# Build Electron app (Windows portable)
-cd ../frontend
-npm run build
-
-# Automated cloud deployment (Docker + Terraform, no GitHub Actions)
-cd ..
-./deploy.sh --project <your-gcp-project>
-
-```
-
 ---
 
 ## How It Works
@@ -195,25 +178,6 @@ taskpilot/
 | **Desktop Mode** | Local REST-driven automation with native desktop control | App switching, OS-level actions, local workflows |
 | **Browser Mode** | Cloud/local WebSocket browser automation using Gemini computer-use | Web tasks, remote execution, scalable browser sessions |
 
----
-
-## Automated Cloud Deployment Proof
-
-This repository includes end-to-end deployment automation in code:
-
-- **Docker image build** from `computer-use-preview/Dockerfile`
-- **Artifact Registry + Cloud Run provisioning** with Terraform in `terraform/`
-- **One-command scripted deployment** via `./deploy.sh`
-
-Run:
-
-```bash
-./deploy.sh --project <your-gcp-project>
-```
-
-This satisfies the requirement to prove automated cloud deployment using scripts/IaC in a public repository, without GitHub Actions.
-
----
 ---
 
 ## License
