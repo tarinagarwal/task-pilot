@@ -58,7 +58,7 @@ Built for the **Gemini Live Agent Challenge** hackathon. #GeminiLiveAgentChallen
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/taskpilot.git
+git clone https://github.com/tarinagarwal/taskpilot.git
 cd taskpilot
 
 # Install TypeScript desktop agent deps
