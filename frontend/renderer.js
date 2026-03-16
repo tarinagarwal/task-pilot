@@ -1,7 +1,8 @@
 const { ipcRenderer } = require("electron");
 
 // Cloud Run URL for browser mode
-const CLOUD_RUN_URL = "wss://computer-use-preview-753617931709.us-central1.run.app";
+const CLOUD_RUN_URL =
+  "wss://computer-use-preview-753617931709.us-central1.run.app";
 const CLAWD_LOCAL_URL = "http://127.0.0.1:3847";
 
 // Window controls
@@ -313,16 +314,16 @@ function startAgent() {
   if (isRunning) return;
   const query = queryInput.value.trim();
   if (!query) return;
-  
+
   const mode = modeSelect.value;
-  
+
   setRunning(true);
   thinkingContent.innerHTML = "";
   actionsList.innerHTML = "";
   actionCountNum = 0;
   actionCount.textContent = "0";
   iterationCount.textContent = "Iteration: 0";
-  
+
   if (mode === "desktop") {
     // Desktop mode - use local clawd-cursor REST API
     startDesktopAgent(query);
@@ -360,15 +361,15 @@ function startAgent() {
 async function startDesktopAgent(query) {
   try {
     addThinkingEntry("Sending task to Gemini Cursor...");
-    
+
     const res = await fetch(`${CLAWD_LOCAL_URL}/task`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ task: query }),
     });
-    
+
     const data = await res.json();
-    
+
     if (data.accepted) {
       addThinkingEntry("Task accepted. Monitoring progress...");
       pollDesktopStatus();
@@ -377,23 +378,26 @@ async function startDesktopAgent(query) {
       setRunning(false);
     }
   } catch (err) {
-    addThinkingEntry(`Failed to connect to Gemini Cursor: ${err.message}`, "error");
+    addThinkingEntry(
+      `Failed to connect to Gemini Cursor: ${err.message}`,
+      "error",
+    );
     setRunning(false);
   }
 }
 
 async function pollDesktopStatus() {
   let iteration = 0;
-  
+
   while (isRunning) {
-    await new Promise(r => setTimeout(r, 1000));
-    
+    await new Promise((r) => setTimeout(r, 1000));
+
     try {
       const res = await fetch(`${CLAWD_LOCAL_URL}/status`);
       const status = await res.json();
-      
+
       const agentStatus = status.status || "idle";
-      
+
       // Update iteration count
       if (status.stepsCompleted > iteration) {
         iteration = status.stepsCompleted;
@@ -402,7 +406,7 @@ async function pollDesktopStatus() {
           addActionItem("desktop_action", { step: status.currentStep });
         }
       }
-      
+
       // Check if done
       if (agentStatus === "idle" && iteration > 0) {
         addThinkingEntry("Desktop task completed!", "result");
@@ -410,14 +414,13 @@ async function pollDesktopStatus() {
         setRunning(false);
         break;
       }
-      
+
       if (agentStatus === "error") {
         addThinkingEntry(status.error || "Task failed", "error");
         browserStatus.textContent = "✕ Error";
         setRunning(false);
         break;
       }
-      
     } catch (err) {
       // Connection lost
       break;

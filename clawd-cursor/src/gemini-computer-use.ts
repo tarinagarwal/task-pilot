@@ -522,16 +522,28 @@ export class GeminiComputerUseBrain {
         case "compose": {
           const contentType = parsed.content_type || "document";
           const topic = parsed.topic;
-          if (!topic) return { description: "Compose: no topic", error: "No topic provided" };
-          
-          console.log(`   📝 Generating ${contentType}: "${topic.substring(0, 50)}..."`);
-          
+          if (!topic)
+            return {
+              description: "Compose: no topic",
+              error: "No topic provided",
+            };
+
+          console.log(
+            `   📝 Generating ${contentType}: "${topic.substring(0, 50)}..."`,
+          );
+
           // Generate content using Gemini
-          const generatedContent = await this.generateContent(contentType, topic);
+          const generatedContent = await this.generateContent(
+            contentType,
+            topic,
+          );
           if (!generatedContent) {
-            return { description: "Compose: generation failed", error: "Failed to generate content" };
+            return {
+              description: "Compose: generation failed",
+              error: "Failed to generate content",
+            };
           }
-          
+
           // Type the generated content
           await this.desktop.typeText(generatedContent);
           return {
@@ -613,7 +625,10 @@ export class GeminiComputerUseBrain {
   /**
    * Generate content using Gemini text generation.
    */
-  private async generateContent(contentType: string, topic: string): Promise<string | null> {
+  private async generateContent(
+    contentType: string,
+    topic: string,
+  ): Promise<string | null> {
     const prompts: Record<string, string> = {
       essay: `Write a well-structured essay on the following topic. Include an introduction, body paragraphs with supporting details, and a conclusion. Write at least 300 words.\n\nTopic: ${topic}`,
       letter: `Write a formal letter for the following purpose. Include proper salutation, body, and closing.\n\nPurpose: ${topic}`,
@@ -629,13 +644,16 @@ export class GeminiComputerUseBrain {
         this.geminiConfig,
         "You are a professional content writer. Generate the requested content directly without any preamble or meta-commentary. Do not use markdown formatting unless specifically writing code.",
         prompt,
-        4096
+        4096,
       );
 
       if (!response) return null;
-      
+
       // Clean up any markdown formatting that might interfere with typing
-      return response.replace(/```[a-z]*\n?/g, "").replace(/```/g, "").trim();
+      return response
+        .replace(/```[a-z]*\n?/g, "")
+        .replace(/```/g, "")
+        .trim();
     } catch (err) {
       console.error(`   ❌ Content generation failed: ${err}`);
       return null;
